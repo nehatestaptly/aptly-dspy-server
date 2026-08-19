@@ -5,7 +5,7 @@ from fastapi import FastAPI, Header, HTTPException
 from pydantic import BaseModel
 
 
-# ============================================
+# =======================================
 # Environment variables
 # ============================================
 
