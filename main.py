@@ -32,11 +32,13 @@ dspy.configure(lm=lm)
 
 
 # ============================================
-# DSPy Chain of Thought
+# ReAct Agent
 # ============================================
 
-cot = dspy.ChainOfThought(
-    "question -> answer"
+react_agent = dspy.ReAct(
+    signature="task -> answer",
+    tools=[],
+    max_iters=5,
 )
 
 
@@ -46,7 +48,7 @@ cot = dspy.ChainOfThought(
 
 app = FastAPI(
     title="AptlyStar DSPy Server",
-    version="2.0.0",
+    version="3.0.0",
 )
 
 
@@ -54,7 +56,8 @@ app = FastAPI(
 # Request model
 # ============================================
 
-class PredictRequest(BaseModel):
+class ReActRequest(BaseModel):
+    task: str | None = None
     question: str | None = None
     text: str | None = None
     input: str | None = None
@@ -68,7 +71,7 @@ class PredictRequest(BaseModel):
 def root():
     return {
         "status": "ok",
-        "service": "AptlyStar DSPy Chain of Thought Server",
+        "service": "AptlyStar DSPy ReAct Server",
     }
 
 
@@ -84,12 +87,12 @@ def health():
 
 
 # ============================================
-# Predict / Chain of Thought
+# ReAct endpoint
 # ============================================
 
 @app.post("/predict")
 def predict(
-    request: PredictRequest,
+    request: ReActRequest,
     x_api_key: str | None = Header(default=None),
     authorization: str | None = Header(default=None),
 ):
@@ -111,40 +114,44 @@ def predict(
         )
 
     # ----------------------------------------
-    # Get question
+    # Get task
     # ----------------------------------------
 
-    question = request.question or request.text or request.input
+    task = (
+        request.task
+        or request.question
+        or request.text
+        or request.input
+    )
 
-    if not question:
+    if not task:
         raise HTTPException(
             status_code=400,
-            detail="Question is required",
+            detail="Task is required",
         )
 
     # ----------------------------------------
-    # Run Chain of Thought
+    # Run ReAct
     # ----------------------------------------
 
     try:
-        result = cot(question=question)
+        result = react_agent(task=task)
 
         answer = str(result.answer)
-        reasoning = str(result.reasoning)
+
+        reasoning = getattr(result, "reasoning", "")
+        trajectory = getattr(result, "trajectory", {})
 
         return {
             "answer": answer,
-            "reasoning": reasoning,
             "output": answer,
+            "reasoning": str(reasoning),
+            "trajectory": trajectory,
             "status": "success",
-            "rawOutput": {
-                "answer": answer,
-                "reasoning": reasoning,
-            },
         }
 
     except Exception as e:
         raise HTTPException(
             status_code=500,
-            detail=f"DSPy Chain of Thought failed: {str(e)}",
+            detail=f"DSPy ReAct failed: {str(e)}",
         )
