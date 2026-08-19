@@ -20,7 +20,7 @@ if not DSPY_API_KEY:
 
 
 # ============================================
-# Configure DSPy with Gemini 3.6 Flash
+# Configure DSPy + Gemini
 # ============================================
 
 lm = dspy.LM(
@@ -32,11 +32,11 @@ dspy.configure(lm=lm)
 
 
 # ============================================
-# DSPy Prediction
+# DSPy Chain of Thought
 # ============================================
 
-predictor = dspy.Predict(
-    "text -> answer"
+cot = dspy.ChainOfThought(
+    "question -> answer"
 )
 
 
@@ -46,7 +46,7 @@ predictor = dspy.Predict(
 
 app = FastAPI(
     title="AptlyStar DSPy Server",
-    version="1.0.0",
+    version="2.0.0",
 )
 
 
@@ -55,6 +55,7 @@ app = FastAPI(
 # ============================================
 
 class PredictRequest(BaseModel):
+    question: str | None = None
     text: str | None = None
     input: str | None = None
 
@@ -67,7 +68,7 @@ class PredictRequest(BaseModel):
 def root():
     return {
         "status": "ok",
-        "service": "AptlyStar DSPy Server",
+        "service": "AptlyStar DSPy Chain of Thought Server",
     }
 
 
@@ -83,7 +84,7 @@ def health():
 
 
 # ============================================
-# Predict
+# Predict / Chain of Thought
 # ============================================
 
 @app.post("/predict")
@@ -94,7 +95,7 @@ def predict(
 ):
 
     # ----------------------------------------
-    # Authenticate
+    # Authentication
     # ----------------------------------------
 
     supplied_key = x_api_key
@@ -110,34 +111,40 @@ def predict(
         )
 
     # ----------------------------------------
-    # Get input
+    # Get question
     # ----------------------------------------
 
-    text = request.text or request.input
+    question = request.question or request.text or request.input
 
-    if not text:
+    if not question:
         raise HTTPException(
             status_code=400,
-            detail="Input text is required",
+            detail="Question is required",
         )
 
     # ----------------------------------------
-    # Run DSPy
+    # Run Chain of Thought
     # ----------------------------------------
 
     try:
-        result = predictor(text=text)
+        result = cot(question=question)
 
         answer = str(result.answer)
+        reasoning = str(result.reasoning)
 
         return {
             "answer": answer,
+            "reasoning": reasoning,
             "output": answer,
             "status": "success",
+            "rawOutput": {
+                "answer": answer,
+                "reasoning": reasoning,
+            },
         }
 
     except Exception as e:
         raise HTTPException(
             status_code=500,
-            detail=f"DSPy prediction failed: {str(e)}",
+            detail=f"DSPy Chain of Thought failed: {str(e)}",
         )
