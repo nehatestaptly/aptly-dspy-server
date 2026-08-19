@@ -1,0 +1,3 @@
+dspy
+fastapi
+uvicorn[standard]
