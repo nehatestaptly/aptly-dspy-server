@@ -5,7 +5,7 @@ from fastapi import FastAPI, Header, HTTPException
 from pydantic import BaseModel
 
 
-# =======================================
+# ============================================
 # Environment variables
 # ============================================
 
@@ -20,13 +20,12 @@ if not DSPY_API_KEY:
 
 
 # ============================================
-# Configure DSPy with Gemini
+# Configure DSPy with Gemini 3.6 Flash
 # ============================================
 
 lm = dspy.LM(
-    "gemini/gemini-2.0-flash",
+    "gemini/gemini-3.6-flash",
     api_key=GEMINI_API_KEY,
-    temperature=0,
 )
 
 dspy.configure(lm=lm)
@@ -42,7 +41,7 @@ predictor = dspy.Predict(
 
 
 # ============================================
-# FastAPI application
+# FastAPI
 # ============================================
 
 app = FastAPI(
@@ -61,7 +60,7 @@ class PredictRequest(BaseModel):
 
 
 # ============================================
-# Root endpoint
+# Root
 # ============================================
 
 @app.get("/")
@@ -73,7 +72,7 @@ def root():
 
 
 # ============================================
-# Health endpoint
+# Health
 # ============================================
 
 @app.get("/health")
@@ -84,7 +83,7 @@ def health():
 
 
 # ============================================
-# Predict endpoint
+# Predict
 # ============================================
 
 @app.post("/predict")
@@ -93,14 +92,13 @@ def predict(
     x_api_key: str | None = Header(default=None),
     authorization: str | None = Header(default=None),
 ):
+
     # ----------------------------------------
-    # Check API key
+    # Authenticate
     # ----------------------------------------
 
     supplied_key = x_api_key
 
-    # Also support:
-    # Authorization: Bearer <API_KEY>
     if not supplied_key and authorization:
         if authorization.startswith("Bearer "):
             supplied_key = authorization[7:]
@@ -139,8 +137,6 @@ def predict(
         }
 
     except Exception as e:
-        # Return the actual error so we can diagnose
-        # it instead of getting a generic 500.
         raise HTTPException(
             status_code=500,
             detail=f"DSPy prediction failed: {str(e)}",
